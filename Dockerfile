@@ -142,3 +142,35 @@ USER ${DEVELOPER_USER}
 
 COPY --from=node-dependencies /var/www/html /var/www/html
 COPY --from=composer-dependencies /var/www/html /var/www/html
+
+
+# Etapa Testing =========
+FROM testing-base AS testing
+
+# Cambiarse al usuario "root" para instalar las dependencias (incluyendo sudo)
+USER root
+
+# Instalar netcat:
+RUN apt-get install -y --no-install-recommends \
+  # Para esperar a que el servicio de minio (u otros) esté disponible:
+  netcat
+
+USER ${DEVELOPER_USER}
+
+COPY --from=node-dependencies /var/www/html /var/www/html
+COPY --from=composer-dependencies /var/www/html /var/www/html
+
+# Etapa Builder: ================================================================
+FROM testing AS builder
+
+USER root
+
+# Copiar el resto del código:
+COPY . /var/www/html
+
+RUN rm -rf /var/www/html/node_modules
+
+# Etapa Release: ========
+FROM runtime AS release
+
+COPY --from=builder --chown=www-data /var/www/html /var/www/html
